@@ -1,4 +1,6 @@
-const {parseQuery} = require('./queryParser');
+// src/index.js
+
+const parseQuery = require('./queryParser');
 const readCSV = require('./csvReader');
 function evaluateCondition(row, clause) {
     const { field, operator, value } = clause;
@@ -11,6 +13,10 @@ function evaluateCondition(row, clause) {
         case '<=': return row[field] <= value;
         default: throw new Error(`Unsupported operator: ${operator}`);
     }
+}
+function applyGroupBy(data, groupByFields, aggregateFunctions) {
+    // Implement logic to group data and calculate aggregates
+    // ...
 }
 function performInnerJoin(/* parameters */) {
     // Logic for INNER JOIN
@@ -27,27 +33,12 @@ function performRightJoin(/* parameters */) {
     // ...
 }
 async function executeSELECTQuery(query) {
-    const { fields, table, whereClauses, joinTable, joinCondition } = parseQuery(query);
+    const { fields, table, whereClauses, joinType, joinTable, joinCondition, groupByFields } = parseQuery(query);
     let data = await readCSV(`${table}.csv`);
 
-    // Perform INNER JOIN if specified
+    // Logic for applying JOINs
     if (joinTable && joinCondition) {
         const joinData = await readCSV(`${joinTable}.csv`);
-        data = data.flatMap(mainRow => {
-            return joinData
-                .filter(joinRow => {
-                    const mainValue = mainRow[joinCondition.left.split('.')[1]];
-                    const joinValue = joinRow[joinCondition.right.split('.')[1]];
-                    return mainValue === joinValue;
-                })
-                .map(joinRow => {
-                    return fields.reduce((acc, field) => {
-                        const [tableName, fieldName] = field.split('.');
-                        acc[field] = tableName === table ? mainRow[fieldName] : joinRow[fieldName];
-                        return acc;
-                    }, {});
-                });
-        });
         switch (joinType.toUpperCase()) {
             case 'INNER':
                 data = performInnerJoin(data, joinData, joinCondition, fields, table);
@@ -58,15 +49,17 @@ async function executeSELECTQuery(query) {
             case 'RIGHT':
                 data = performRightJoin(data, joinData, joinCondition, fields, table);
                 break;
-            default:
-                throw new Error(`Unsupported JOIN type: ${joinType}`);
+            // Handle default case or unsupported JOIN types
         }
     }
 
-    // Apply WHERE clause filtering after JOIN (or on the original data if no join)
+// Apply WHERE clause filtering after JOIN (or on the original data if no join)
     const filteredData = whereClauses.length > 0
         ? data.filter(row => whereClauses.every(clause => evaluateCondition(row, clause)))
         : data;
+    if (groupByFields) {
+        data = applyGroupBy(data, groupByFields, fields);
+    }
     // Select the specified fields
     return filteredData.map(row => {
         const selectedRow = {};

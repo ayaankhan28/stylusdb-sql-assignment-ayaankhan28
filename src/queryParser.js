@@ -1,3 +1,4 @@
+// src/queryParser.js
 
 // src/queryParser.js
 
@@ -46,7 +47,19 @@ function parseQuery(query) {
             right: joinMatch[3].trim()
         };
     }
-    
+    // Updated regex to capture GROUP BY clause
+    const groupByRegex = /\sGROUP BY\s(.+)/i;
+    const groupByMatch = query.match(groupByRegex);
+
+    let groupByFields = null;
+    if (groupByMatch) {
+        groupByFields = groupByMatch[1].split(',').map(field => field.trim());
+    }
+
+    return {
+        // ...existing parsed parts,
+        groupByFields
+    };
     // Parse the WHERE part if it exists
     let whereClauses = [];
     if (whereClause) {
@@ -61,8 +74,18 @@ function parseQuery(query) {
         joinCondition
     };
 }
-module.exports = parseQuery;
 
+function parseWhereClause(whereString) {
+    const conditionRegex = /(.*?)(=|!=|>|<|>=|<=)(.*)/;
+    return whereString.split(/ AND | OR /i).map(conditionString => {
+        const match = conditionString.match(conditionRegex);
+        if (match) {
+            const [, field, operator, value] = match;
+            return { field: field.trim(), operator, value: value.trim() };
+        }
+        throw new Error('Invalid WHERE clause format');
+    });
+}
 function parseJoinClause(query) {
     const joinRegex = /\s(INNER|LEFT|RIGHT) JOIN\s(.+?)\sON\s([\w.]+)\s*=\s*([\w.]+)/i;
     const joinMatch = query.match(joinRegex);
@@ -84,5 +107,5 @@ function parseJoinClause(query) {
         joinCondition: null
     };
 }
-
+module.exports = parseQuery;
 module.exports = { parseQuery, parseJoinClause };
